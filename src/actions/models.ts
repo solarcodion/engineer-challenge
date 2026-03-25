@@ -1,11 +1,11 @@
 'use server';
 
-/* eslint-disable @typescript-eslint/no-unused-vars -- imports are for your implementation */
-import { revalidatePath } from 'next/cache';
-import { query } from '@/lib/db';
-import { addModelSchema } from '@/lib/validations';
+
 import { getUserId } from '@/lib/auth';
+import { query } from '@/lib/db';
 import type { Model } from '@/lib/types';
+import { addModelSchema } from '@/lib/validations';
+import { revalidatePath } from 'next/cache';
 // ============================================================================
 // CHALLENGE TASK 3: Complete the addModel server action
 // ============================================================================
@@ -33,5 +33,49 @@ export async function addModel(
   formData: FormData,
 ): Promise<{ success: true } | { error: string }> {
   // TODO: Your implementation here
-  return { error: 'Not implemented' };
+
+  const userId = await getUserId();
+  if (!userId) {
+    return {
+      error: 'Not authenticated!',
+    }
+  }
+
+  const payload = {
+    name: formData.get('name'),
+    model_id: formData.get('model_id'),
+    provider_id: formData.get('provider_id'),
+    context_window: formData.get('context_window'),
+    status: formData.get('status'),
+    notes: formData.get('notes'),
+  }
+
+  const validation = addModelSchema.safeParse(payload);
+
+  if (!validation.success) {
+    return {
+      error: validation.error.errors[0].message
+    }
+  }
+
+  const {
+    name, model_id, provider_id, context_window, status, notes
+  } = validation.data
+
+  try {
+    await query<Model>(
+      `INSERT INTO models ( name, model_id, provider_id, context_window, status, notes, added_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [name, model_id, provider_id, context_window, status, notes, userId]
+    )
+  } catch (err) {
+
+    return {
+      error: err instanceof Error ? err.message : 'Fail to create new model!'
+    }
+  }
+
+  revalidatePath('dashboard')
+  return {
+    success: true
+  };
 }

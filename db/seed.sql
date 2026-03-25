@@ -73,6 +73,28 @@ CREATE INDEX idx_models_status ON models(status);
 
 -- YOUR SQL GOES BELOW THIS LINE
 
+CREATE TABLE deployments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_id UUID NOT NULL,
+  environment VARCHAR(20) NOT NULL DEFAULT 'development'
+    CHECK (status IN ('development', 'staging', 'production')),
+  status VARCHAR(20) NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'inactive', 'failed')),
+  notes TEXT,
+  deployed_by UUID NOT NULL,
+  CONSTRAINT fk_deployments_model_id FOREIGN KEY (model_id)
+    REFERENCES providers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_deployments_deployed_by FOREIGN KEY (deployed_by)
+    REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT uq_deployments_model_environment UNIQUE (model_id, environment),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  deployed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_deployments_model_id ON deployments(model_id);
+CREATE INDEX idx_deployments_deployed_by ON deployments(deployed_by);
+CREATE INDEX idx_deployments_status ON deployments(status);
+CREATE INDEX idx_deployments_environment ON deployments(environment);
 
 
 -- ============================================================================
@@ -87,3 +109,8 @@ INSERT INTO providers (id, name, website) VALUES
   ('c3d4e5f6-a7b8-9012-cdef-123456789012', 'Anthropic', 'https://anthropic.com'),
   ('d4e5f6a7-b8c9-0123-defa-234567890123', 'OpenAI', 'https://openai.com'),
   ('e5f6a7b8-c9d0-1234-efab-345678901234', 'Google', 'https://ai.google');
+
+INSERT INTO models (name, model_id,provider_id,context_window,status,added_by) VALUES
+  ('Claude', 'claude-3.5', 'c3d4e5f6-a7b8-9012-cdef-123456789012', 200055, 'evaluating', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'),
+  ('Chatpgpt', 'chatgpt-3.5', 'c3d4e5f6-a7b8-9012-cdef-123456789012', 200055, 'approved', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'),
+  ('Gemini', 'gemini-3.5', 'c3d4e5f6-a7b8-9012-cdef-123456789012', 200055, 'deprecated', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890');
